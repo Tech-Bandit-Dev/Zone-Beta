@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Backend (Node/NestJS)
+backend/node_modules/
+backend/dist/
+backend/.env
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json
