@@ -17,7 +17,10 @@ export class CreateSignalDto {
   @IsEnum(SignalType)
   type: SignalType;
 
-  @IsIn([250, 500, 1000], { message: 'radiusMeters must be 250, 500 or 1000' })
+  @IsIn([250, 500, 1000, 2000, 3000, 4000, 5000], {
+    message:
+      'radiusMeters must be one of 250, 500, 1000, 2000, 3000, 4000, 5000',
+  })
   radiusMeters: number;
 
   @IsNumber()
@@ -30,8 +33,8 @@ export class CreateSignalDto {
   @Max(180)
   lng: number;
 
-  // Minutes until expiry: 15 | 30 | 60.
-  @IsIn([15, 30, 60])
+  // Minutes until expiry: 15 | 30 | 60 | 120 | 180 | 240 | 300 | 360 (6 hr max).
+  @IsIn([15, 30, 60, 120, 180, 240, 300, 360])
   expiresInMinutes: number;
 }
 
@@ -47,6 +50,6 @@ export class NearbyQueryDto {
   lng: number;
 
   // Optional viewer search range.
-  @IsIn([250, 500, 1000, 5000])
+  @IsIn([250, 500, 1000, 2000, 3000, 4000, 5000])
   range?: number;
 }

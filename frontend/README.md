@@ -122,6 +122,44 @@ these can't be pre-filled.
 Until this is configured, the button shows a clear inline error telling you
 what's missing instead of failing silently — that's expected, not a bug.
 
+## Google Maps setup
+
+The map screen currently uses `MapPlaceholder` (a dependency-free faux map).
+`google_maps_flutter` is already in `pubspec.yaml` for when you're ready to
+swap in a real `GoogleMap` widget — that swap itself isn't done yet, but the
+API key plumbing is, so you can drop a key in and go.
+
+1. **Create/select a project** at [console.cloud.google.com](https://console.cloud.google.com)
+   (can be the same project as Google Sign-In).
+2. **Enable billing** on the project. Maps requires a billing account even
+   for dev use — Google's free monthly credit covers normal local testing.
+3. **Enable the API** — APIs & Services → Library → enable **"Maps SDK for
+   Android"** (and **"Maps SDK for iOS"** if you'll also run on iOS).
+4. **Create the key** — APIs & Services → Credentials → Create Credentials →
+   API key.
+5. **Restrict it** (Edit the key right after creating it — an unrestricted
+   key is a real liability since it'll be embedded in the app binary):
+   - Application restrictions → **Android apps** → add package name
+     `com.example.zone` + your debug SHA-1 (same one from the Google
+     Sign-In steps above; add your release SHA-1 too before shipping).
+   - API restrictions → restrict to **Maps SDK for Android** only.
+   - Android and iOS restrictions are mutually exclusive per key, so if you
+     need both platforms, create a second key restricted to **iOS apps**
+     (bundle ID) + **Maps SDK for iOS**.
+6. **Add the key to the project** (gitignored, so it's safe to paste the
+   real value):
+   - Android: open `android/local.properties` and set
+     `MAPS_API_KEY=your-key-here` — `android/app/build.gradle.kts` reads it
+     and injects it into `AndroidManifest.xml`'s
+     `com.google.android.geo.API_KEY` meta-data at build time.
+   - iOS: no plumbing wired up yet — call
+     `GMSServices.provideAPIKey("your-key-here")` in
+     `ios/Runner/AppDelegate.swift` (`import GoogleMaps` first) when you get
+     there.
+7. **Swap the widget**: replace `MapPlaceholder` in `map_screen.dart` with a
+   `GoogleMap` widget once you have a key — the rest of the screen (radius
+   slider, bottom sheet, create flow) stays the same.
+
 ## Next milestones
 
 - Live updates via `socket_io_client` (connect to the realtime gateway, listen

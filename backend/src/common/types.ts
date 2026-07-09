@@ -27,7 +27,7 @@ export interface Signal {
   posterId: string;
   message: string;
   type: SignalType;
-  radiusMeters: number; // 250 | 500 | 1000
+  radiusMeters: number; // 250 | 500 | 1000 | 2000 | 3000 | 4000 | 5000
   location: GeoPoint;
   status: SignalStatus;
   createdAt: string; // ISO

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/signal.dart';
+import 'radius_slider.dart';
 
 /// A lightweight, dependency-free "map" used until a real Google Maps API key
 /// is configured. Draws radius rings around the user and places signal pins at
@@ -38,7 +39,7 @@ class MapPlaceholder extends StatelessWidget {
               child: CustomPaint(
                 painter: _RingsPainter(
                   origin: origin,
-                  radii: const [250, 500, 1000]
+                  radii: radiusStops
                       .where((r) => r <= selectedRadius)
                       .map((r) => r * ppm)
                       .toList(),

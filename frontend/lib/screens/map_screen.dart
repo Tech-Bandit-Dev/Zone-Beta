@@ -4,10 +4,12 @@ import '../theme/app_theme.dart';
 import '../models/signal.dart';
 import '../state/app_state.dart';
 import '../widgets/map_placeholder.dart';
+import '../widgets/radius_slider.dart';
 import '../widgets/signal_bottom_sheet.dart';
 import '../widgets/sign_in_gate.dart';
 import 'create_signal_screen.dart';
 import 'chat_screen.dart';
+import 'chat_list_screen.dart';
 import 'profile_screen.dart';
 import 'activity_screen.dart';
 
@@ -40,8 +42,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     await ref.read(signalsProvider.notifier).loadNearby(
           lat: _center.lat,
           lng: _center.lng,
-          range: 1000,
+          range: _radius,
         );
+  }
+
+  void _onRadiusChanged(int r) {
+    setState(() => _radius = r);
+    _refresh();
   }
 
   Future<void> _openSignal(Signal s) async {
@@ -52,6 +59,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       } catch (_) {
         // Ignore for the mock/offline case; still open chat.
       }
+      ref.read(conversationsProvider.notifier).addOrUpdate(s);
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => ChatScreen(signal: s)),
@@ -73,12 +81,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       return;
     }
     final created = await Navigator.of(context).push<Signal>(
-      MaterialPageRoute(
-        builder: (_) => CreateSignalScreen(center: _center),
+      PageRouteBuilder<Signal>(
+        transitionDuration: const Duration(milliseconds: 320),
+        reverseTransitionDuration: const Duration(milliseconds: 240),
+        pageBuilder: (_, __, ___) => CreateSignalScreen(center: _center),
+        transitionsBuilder: (_, animation, __, child) {
+          final curved =
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.08),
+              end: Offset.zero,
+            ).animate(curved),
+            child: FadeTransition(opacity: curved, child: child),
+          );
+        },
       ),
     );
     if (created != null) {
       ref.read(signalsProvider.notifier).addLocal(created);
+      ref.read(conversationsProvider.notifier).addOrUpdate(created);
     }
   }
 
@@ -87,9 +109,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final signals = ref.watch(signalsProvider);
     final user = ref.watch(authProvider);
 
-    // Simple nav: index 0 is the map; others push full screens. Activity and
-    // Profile require an account — guests see a sign-in prompt instead.
-    if (_navIndex == 2) {
+    // Simple nav: index 0 is the map; others push full screens. Activity,
+    // Chat, and Profile require an account — guests see a sign-in prompt
+    // instead.
+    if (_navIndex == 1) {
       return user == null
           ? SignInGate(
               message:
@@ -97,6 +120,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               onBack: () => setState(() => _navIndex = 0),
             )
           : ActivityScreen(onBack: () => setState(() => _navIndex = 0));
+    }
+    if (_navIndex == 2) {
+      return user == null
+          ? SignInGate(
+              message: 'Sign up or log in to see your chats.',
+              onBack: () => setState(() => _navIndex = 0),
+            )
+          : ChatListScreen(onBack: () => setState(() => _navIndex = 0));
     }
     if (_navIndex == 3) {
       return user == null
@@ -146,15 +177,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
-            // Radius selector. Right inset leaves room for the FAB so the
-            // two floating controls don't overlap in the same bottom band.
+            // Radius slider (drag to pick anything from 250m up to 5km).
+            // Right inset leaves room for the FAB so the two floating
+            // controls don't overlap in the same bottom band.
             Positioned(
               left: 16,
               right: 160,
               bottom: 24,
-              child: _RadiusSelector(
+              child: RadiusSlider(
                 value: _radius,
-                onChanged: (r) => setState(() => _radius = r),
+                onChanged: _onRadiusChanged,
+                compact: true,
               ),
             ),
           ],
@@ -169,19 +202,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndex,
-        onDestinationSelected: (i) {
-          if (i == 1) {
-            _openCreate();
-          } else {
-            setState(() => _navIndex = i);
-          }
-        },
+        onDestinationSelected: (i) => setState(() => _navIndex = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
           NavigationDestination(
-              icon: Icon(Icons.add_circle_outline), label: 'Create'),
-          NavigationDestination(
               icon: Icon(Icons.bolt_outlined), label: 'Activity'),
+          NavigationDestination(
+              icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
           NavigationDestination(
               icon: Icon(Icons.person_outline), label: 'Profile'),
         ],
@@ -213,49 +240,3 @@ class _MapChip extends StatelessWidget {
   }
 }
 
-class _RadiusSelector extends StatelessWidget {
-  const _RadiusSelector({required this.value, required this.onChanged});
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  static const _options = [250, 500, 1000];
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Row(
-          children: _options.map((r) {
-            final selected = r == value;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(r),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.all(2),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: selected ? ZoneColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    r < 1000 ? '${r}m' : '${r ~/ 1000}km',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: selected ? Colors.white : ZoneColors.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-}

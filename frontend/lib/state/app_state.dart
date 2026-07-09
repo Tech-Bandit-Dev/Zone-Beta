@@ -132,3 +132,21 @@ class SignalsNotifier extends StateNotifier<List<Signal>> {
   void replace(Signal s) =>
       state = [for (final x in state) if (x.id == s.id) s else x];
 }
+
+/// Signals the current user has an open chat thread for (accepted from
+/// someone else, or posted themselves). Local-only for now — there's no
+/// backend "my conversations" endpoint yet, so this just tracks what's been
+/// opened this session. Swap for a real conversations API later.
+final conversationsProvider =
+    StateNotifierProvider<ConversationsNotifier, List<Signal>>((ref) {
+  return ConversationsNotifier();
+});
+
+class ConversationsNotifier extends StateNotifier<List<Signal>> {
+  ConversationsNotifier() : super(const []);
+
+  void addOrUpdate(Signal s) {
+    final withoutExisting = state.where((x) => x.id != s.id);
+    state = [s, ...withoutExisting];
+  }
+}
