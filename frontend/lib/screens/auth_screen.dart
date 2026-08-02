@@ -11,7 +11,7 @@ import 'map_screen.dart';
 
 /// Pulls the backend's actual validation/error message out of an
 /// [ApiException] instead of showing a generic "server unreachable" message
-/// for what's really a 400 (e.g. missing name, malformed phone). Also
+/// for what's really a 400 (e.g. missing name, malformed email). Also
 /// surfaces plain [Exception] messages (e.g. Google sign-in config errors)
 /// rather than flattening everything to the same connectivity message.
 String describeAuthError(Object e) {
@@ -38,7 +38,7 @@ String describeAuthError(Object e) {
 
 enum AuthMode { login, signup }
 
-/// Collects phone (and name on signup), requests an OTP, then routes to
+/// Collects email (and name on signup), requests an OTP, then routes to
 /// [OtpScreen]. Shared by both log in and sign up.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key, required this.mode});
@@ -50,7 +50,7 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _name = TextEditingController();
-  final _phone = TextEditingController();
+  final _email = TextEditingController();
   bool _loading = false;
   String? _error;
 
@@ -59,14 +59,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   @override
   void dispose() {
     _name.dispose();
-    _phone.dispose();
+    _email.dispose();
     super.dispose();
   }
 
   Future<void> _continue() async {
-    final phone = _phone.text.trim();
-    if (phone.length < 8) {
-      setState(() => _error = 'Enter a valid phone number');
+    final email = _email.text.trim();
+    if (!email.contains('@') || !email.contains('.')) {
+      setState(() => _error = 'Enter a valid email address');
       return;
     }
     if (_isSignup && _name.text.trim().isEmpty) {
@@ -78,18 +78,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       _error = null;
     });
 
-    // Ensure +country code; default to +91 (India).
-    final normalized = phone.startsWith('+') ? phone : '+91$phone';
-
     try {
       final devCode = await ref.read(authProvider.notifier).requestOtp(
-            phone: normalized,
+            email: email,
             name: _isSignup ? _name.text.trim() : null,
           );
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => OtpScreen(phone: normalized, devCode: devCode),
+          builder: (_) => OtpScreen(email: email, devCode: devCode),
         ),
       );
     } catch (e) {
@@ -152,7 +149,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'We will text you a 6-digit code to verify.',
+                'We will email you a 6-digit code to verify.',
                 style: TextStyle(color: ZoneColors.textMuted, fontSize: 15),
               ),
               const SizedBox(height: 28),
@@ -168,12 +165,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 const SizedBox(height: 16),
               ],
               TextField(
-                controller: _phone,
-                keyboardType: TextInputType.phone,
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: 'Phone number',
-                  prefixText: '+91  ',
-                  prefixIcon: Icon(Icons.phone_outlined),
+                  labelText: 'Email address',
+                  prefixIcon: Icon(Icons.email_outlined),
                 ),
               ),
               if (_error != null) ...[

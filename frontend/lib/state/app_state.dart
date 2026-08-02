@@ -22,13 +22,13 @@ class AuthNotifier extends StateNotifier<UserProfile?> {
   AuthNotifier(this._ref) : super(null);
   final Ref _ref;
 
-  Future<String?> requestOtp({required String phone, String? name}) {
-    return _ref.read(apiProvider).requestOtp(phone: phone, name: name);
+  Future<String?> requestOtp({required String email, String? name}) {
+    return _ref.read(apiProvider).requestOtp(email: email, name: name);
   }
 
-  Future<void> verifyOtp({required String phone, required String code}) async {
+  Future<void> verifyOtp({required String email, required String code}) async {
     final result =
-        await _ref.read(apiProvider).verifyOtp(phone: phone, code: code);
+        await _ref.read(apiProvider).verifyOtp(email: email, code: code);
     _ref.read(apiProvider).setToken(result.token);
     state = result.user;
   }

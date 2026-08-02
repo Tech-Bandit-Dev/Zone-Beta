@@ -1,7 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client } from 'google-auth-library';
+import * as nodemailer from 'nodemailer';
 import { v4 as uuid } from 'uuid';
 import { InMemoryStore } from '../common/in-memory.store';
 import { UserProfile, VerificationTier } from '../common/types';
@@ -15,7 +20,7 @@ interface PendingOtp {
 
 @Injectable()
 export class AuthService {
-  // phone -> pending OTP challenge
+  // email -> pending OTP challenge
   private readonly pending = new Map<string, PendingOtp>();
   private readonly googleClient: OAuth2Client;
 
@@ -29,20 +34,32 @@ export class AuthService {
 
   /**
    * Request an OTP. In mock mode we return a fixed code so the frontend flow
-   * works without an SMS provider. Wire Twilio / MSG91 here for production.
+   * works without a mail server configured. Otherwise we generate a real
+   * code and email it.
    */
-  requestOtp(dto: RequestOtpDto): { sent: true; devCode?: string } {
+  async requestOtp(dto: RequestOtpDto): Promise<{ sent: true; devCode?: string }> {
     const mock = this.config.get<string>('OTP_MOCK_MODE') !== 'false';
     const code = mock ? '123456' : this.randomCode();
 
-    this.pending.set(dto.phone, {
+    this.pending.set(dto.email, {
       code,
       name: dto.name,
       expiresAt: Date.now() + 5 * 60 * 1000,
     });
 
     // In mock mode we surface the code so you can test end to end.
-    return mock ? { sent: true, devCode: code } : { sent: true };
+    if (mock) {
+      return { sent: true, devCode: code };
+    }
+
+    try {
+      await this.sendOtpEmail(dto.email, code);
+    } catch (err) {
+      // Don't leave a code the user never received sitting around as valid.
+      this.pending.delete(dto.email);
+      throw err;
+    }
+    return { sent: true };
   }
 
   /**
@@ -52,7 +69,7 @@ export class AuthService {
    */
   verifyOtp(dto: VerifyOtpDto): { token: string; user: UserProfile } {
     const mock = this.config.get<string>('OTP_MOCK_MODE') !== 'false';
-    const challenge = this.pending.get(dto.phone);
+    const challenge = this.pending.get(dto.email);
 
     const validCode = mock
       ? /^\d{6}$/.test(dto.code)
@@ -62,12 +79,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired code');
     }
 
-    let user = this.findByPhone(dto.phone);
+    let user = this.findByEmail(dto.email);
     if (!user) {
       user = {
         id: uuid(),
         name: challenge?.name ?? 'Zone user',
-        phone: dto.phone,
+        email: dto.email,
         rating: 5.0,
         verification: VerificationTier.PHONE,
         createdAt: new Date().toISOString(),
@@ -75,9 +92,9 @@ export class AuthService {
       this.store.users.set(user.id, user);
     }
 
-    this.pending.delete(dto.phone);
+    this.pending.delete(dto.email);
 
-    const token = this.jwt.sign({ sub: user.id, phone: user.phone });
+    const token = this.jwt.sign({ sub: user.id, email: user.email });
     return { token, user };
   }
 
@@ -131,13 +148,6 @@ export class AuthService {
     return { token, user };
   }
 
-  private findByPhone(phone: string): UserProfile | undefined {
-    for (const u of this.store.users.values()) {
-      if (u.phone === phone) return u;
-    }
-    return undefined;
-  }
-
   private findByGoogleId(googleId: string): UserProfile | undefined {
     for (const u of this.store.users.values()) {
       if (u.googleId === googleId) return u;
@@ -154,5 +164,40 @@ export class AuthService {
 
   private randomCode(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  /**
+   * Sends the OTP over real email via Gmail SMTP. Only called when
+   * OTP_MOCK_MODE=false. The OTP itself is generated and verified by this
+   * service (see requestOtp/verifyOtp) — Gmail is used purely as the email
+   * transport, not as an OTP provider.
+   */
+  private async sendOtpEmail(email: string, code: string): Promise<void> {
+    const user = this.config.get<string>('GMAIL_USER');
+    const pass = this.config.get<string>('GMAIL_APP_PASSWORD');
+
+    if (!user || !pass) {
+      throw new InternalServerErrorException(
+        'Email sending is not configured (missing GMAIL_USER / GMAIL_APP_PASSWORD).',
+      );
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+    });
+
+    try {
+      await transporter.sendMail({
+        from: `Zone <${user}>`,
+        to: email,
+        subject: `${code} is your Zone verification code`,
+        text: `Your Zone verification code is ${code}. It expires in 5 minutes.`,
+      });
+    } catch (err) {
+      throw new InternalServerErrorException(
+        `Failed to send OTP email: ${(err as Error).message}`,
+      );
+    }
   }
 }

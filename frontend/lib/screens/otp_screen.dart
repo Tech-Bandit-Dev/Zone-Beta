@@ -8,8 +8,8 @@ import 'auth_screen.dart' show describeAuthError;
 /// 6-box OTP entry. On success the auth state flips and the app root swaps to
 /// the map automatically. In mock mode [devCode] is shown as a hint.
 class OtpScreen extends ConsumerStatefulWidget {
-  const OtpScreen({super.key, required this.phone, this.devCode});
-  final String phone;
+  const OtpScreen({super.key, required this.email, this.devCode});
+  final String email;
   final String? devCode;
 
   @override
@@ -47,7 +47,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     try {
       await ref
           .read(authProvider.notifier)
-          .verifyOtp(phone: widget.phone, code: _code);
+          .verifyOtp(email: widget.email, code: _code);
       // Root listens to authProvider and swaps to the map; pop this stack.
       if (mounted) {
         Navigator.of(context).popUntil((r) => r.isFirst);
@@ -62,11 +62,34 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   void _onChanged(int i, String v) {
     if (v.isNotEmpty && i < 5) {
       _nodes[i + 1].requestFocus();
-    } else if (v.isEmpty && i > 0) {
-      _nodes[i - 1].requestFocus();
     }
-    if (_code.length == 6) _verify();
     setState(() {});
+  }
+
+  /// TextField's onChanged only fires when the value actually changes, so
+  /// pressing Backspace on a box that's already empty fires nothing — the
+  /// focus just gets stuck. Catching the raw key event lets us handle that
+  /// case explicitly: clear the previous box and move focus back to it.
+  KeyEventResult _onKey(int i, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        _controllers[i].text.isEmpty &&
+        i > 0) {
+      _controllers[i - 1].clear();
+      _nodes[i - 1].requestFocus();
+      setState(() {});
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Select any existing digit when a box is focused, so typing overwrites
+  /// it instead of trying (and failing, at maxLength 1) to insert alongside it.
+  void _selectAll(int i) {
+    _controllers[i].selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _controllers[i].text.length,
+    );
   }
 
   @override
@@ -89,7 +112,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Sent to ${widget.phone}',
+                'Sent to ${widget.email}',
                 style:
                     const TextStyle(color: ZoneColors.textMuted, fontSize: 15),
               ),
@@ -107,20 +130,24 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 children: List.generate(6, (i) {
                   return SizedBox(
                     width: 48,
-                    child: TextField(
-                      controller: _controllers[i],
-                      focusNode: _nodes[i],
-                      autofocus: i == 0,
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      maxLength: 1,
-                      style: const TextStyle(
-                          fontSize: 22, fontWeight: FontWeight.w700),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: const InputDecoration(counterText: ''),
-                      onChanged: (v) => _onChanged(i, v),
+                    child: Focus(
+                      onKeyEvent: (node, event) => _onKey(i, event),
+                      child: TextField(
+                        controller: _controllers[i],
+                        focusNode: _nodes[i],
+                        autofocus: i == 0,
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        maxLength: 1,
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.w700),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: const InputDecoration(counterText: ''),
+                        onTap: () => _selectAll(i),
+                        onChanged: (v) => _onChanged(i, v),
+                      ),
                     ),
                   );
                 }),

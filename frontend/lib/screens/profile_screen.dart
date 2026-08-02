@@ -100,7 +100,7 @@ class _VerificationCard extends StatelessWidget {
     final isKyc = tier == VerificationTier.kyc;
     final title = switch (tier) {
       VerificationTier.kyc => 'KYC verified',
-      VerificationTier.phone => 'Phone verified',
+      VerificationTier.phone => 'Verified',
       VerificationTier.none => 'Not verified',
     };
     final subtitle = switch (tier) {

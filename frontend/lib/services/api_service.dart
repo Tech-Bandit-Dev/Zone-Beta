@@ -36,11 +36,11 @@ class ApiService {
 
   // ---- Auth ---------------------------------------------------------------
 
-  Future<String?> requestOtp({required String phone, String? name}) async {
+  Future<String?> requestOtp({required String email, String? name}) async {
     final res = await http.post(
       Uri.parse('$baseUrl/auth/request-otp'),
       headers: _headers,
-      body: jsonEncode({'phone': phone, if (name != null) 'name': name}),
+      body: jsonEncode({'email': email, if (name != null) 'name': name}),
     );
     _ensureOk(res);
     final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -48,13 +48,13 @@ class ApiService {
   }
 
   Future<({String token, UserProfile user})> verifyOtp({
-    required String phone,
+    required String email,
     required String code,
   }) async {
     final res = await http.post(
       Uri.parse('$baseUrl/auth/verify-otp'),
       headers: _headers,
-      body: jsonEncode({'phone': phone, 'code': code}),
+      body: jsonEncode({'email': email, 'code': code}),
     );
     _ensureOk(res);
     final body = jsonDecode(res.body) as Map<String, dynamic>;

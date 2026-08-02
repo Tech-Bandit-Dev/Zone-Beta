@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kill 58036)",
+      "Bash(pkill -f \"flutter run -d chrome\")",
+      "Bash(npx tsc *)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/request-otp -H 'Content-Type: application/json' -d '{\"email\":\"techbandit47@gmail.com\",\"name\":\"Neimish\"}' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/verify-otp -H 'Content-Type: application/json' -d '{\"email\":\"techbandit47@gmail.com\",\"code\":\"535276\"}' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/verify-otp -H 'Content-Type: application/json' -d '{\"email\":\"techbandit47@gmail.com\",\"code\":\"000000\"}' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n')",
+      "Bash(kill 25672 25695)",
+      "Bash(pkill -f \"dist/main\")",
+      "Bash(git checkout *)",
+      "Bash(kill 45140)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/request-otp -H 'Content-Type: application/json' -d '{\"email\":\"techbandit47@gmail.com\",\"name\":\"Test\"}' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n')",
+      "Bash(kill 51142 44978 44996)",
+      "Bash(kill -9 51187 3780 3778)",
+      "Bash(kill -9 45021)",
+      "Bash(kill 4131)",
+      "Bash(kill -9 4131 4180)",
+      "Bash(git check-ignore *)",
+      "Bash(git add *)"
+    ]
+  }
+}

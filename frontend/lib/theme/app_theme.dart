@@ -100,7 +100,7 @@ class ZoneTheme {
           borderSide: const BorderSide(color: ZoneColors.primary, width: 2),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: ZoneColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(

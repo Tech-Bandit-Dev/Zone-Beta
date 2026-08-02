@@ -1,9 +1,8 @@
-import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsEmail, IsOptional, IsString, Length } from 'class-validator';
 
 export class RequestOtpDto {
-  @IsString()
-  @Matches(/^\+?[1-9]\d{6,14}$/, { message: 'phone must be E.164-ish' })
-  phone: string;
+  @IsEmail()
+  email: string;
 
   // Present on signup, absent on login.
   @IsOptional()
@@ -13,9 +12,8 @@ export class RequestOtpDto {
 }
 
 export class VerifyOtpDto {
-  @IsString()
-  @Matches(/^\+?[1-9]\d{6,14}$/)
-  phone: string;
+  @IsEmail()
+  email: string;
 
   @IsString()
   @Length(6, 6, { message: 'otp must be 6 digits' })
