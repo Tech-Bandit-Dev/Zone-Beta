@@ -85,24 +85,25 @@ class _StepSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final zc = context.zc;
     final index = steps.indexOf(value).clamp(0, steps.length - 1);
 
     Widget buildSlider({required double trackHeight, required double thumbRadius}) {
       return SliderTheme(
         data: SliderThemeData(
-          activeTrackColor: ZoneColors.primary,
-          // Noticeably darker than the map/paper background so the groove
-          // reads clearly even with no card behind it.
-          inactiveTrackColor: ZoneColors.textMuted.withOpacity(0.35),
-          thumbColor: ZoneColors.primary,
-          overlayColor: ZoneColors.primary.withOpacity(0.15),
+          activeTrackColor: zc.primary,
+          inactiveTrackColor: zc.primary.withValues(alpha: 0.16),
+          thumbColor: Colors.white,
+          overlayColor: zc.primary.withValues(alpha: 0.12),
           trackHeight: trackHeight,
-          thumbShape: RoundSliderThumbShape(
-            enabledThumbRadius: thumbRadius,
-            elevation: 4,
-            pressedElevation: 6,
+          thumbShape: _RingThumb(radius: thumbRadius, ring: zc.primary),
+          tickMarkShape: SliderTickMarkShape.noTickMark,
+          valueIndicatorColor: zc.textPrimary,
+          valueIndicatorTextStyle: TextStyle(
+            color: zc.background,
+            fontWeight: FontWeight.w700,
           ),
-          valueIndicatorColor: ZoneColors.primary,
+          valueIndicatorShape: const PaddleSliderValueIndicatorShape(),
           showValueIndicator: ShowValueIndicator.onlyForDiscrete,
         ),
         child: Slider(
@@ -117,65 +118,121 @@ class _StepSlider extends StatelessWidget {
     }
 
     if (compact) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      // Single row: current value on the left, dragger filling the rest.
+      // Lives inside the map's frosted chip, so no background of its own.
+      return Row(
         children: [
-          // Small elevated pill so the current value stays legible over the
-          // map without wrapping the whole dragger in a background card.
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          Icon(Icons.radar_rounded, size: 18, color: zc.primary),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 44,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
               child: Text(
                 labelBuilder(value),
-                style: const TextStyle(
+                key: ValueKey(value),
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
-                  color: ZoneColors.textPrimary,
+                  color: zc.textPrimary,
                 ),
               ),
             ),
           ),
-          SizedBox(
-            height: 28,
-            child: buildSlider(trackHeight: 4, thumbRadius: 8),
+          Expanded(
+            child: SizedBox(
+              height: 36,
+              child: buildSlider(trackHeight: 5, thumbRadius: 9),
+            ),
           ),
         ],
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildSlider(trackHeight: 4, thumbRadius: 9),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Row(
-            children: steps.map((s) {
-              final selected = s == value;
-              // Shrink-to-fit: with up to 8 stops (radius goes to 5km,
-              // expiry to 6hr) a plain Row can overflow narrow screens.
-              return Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    labelBuilder(s),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color:
-                          selected ? ZoneColors.primary : ZoneColors.textMuted,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+      decoration: BoxDecoration(
+        color: zc.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: zc.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          buildSlider(trackHeight: 6, thumbRadius: 11),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: steps.map((s) {
+                final selected = s == value;
+                // Shrink-to-fit: with up to 8 stops (radius goes to 5km,
+                // expiry to 6hr) a plain Row can overflow narrow screens.
+                return Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 160),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                        color: selected ? zc.primary : zc.textMuted,
+                      ),
+                      child: Text(labelBuilder(s)),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+}
+
+/// White thumb with a colored ring and soft shadow.
+class _RingThumb extends SliderComponentShape {
+  const _RingThumb({required this.radius, required this.ring});
+  final double radius;
+  final Color ring;
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      Size.fromRadius(radius);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final canvas = context.canvas;
+    final r = radius * (1 + 0.15 * activationAnimation.value);
+    canvas.drawCircle(
+      center + const Offset(0, 1.5),
+      r,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+    canvas.drawCircle(center, r, Paint()..color = Colors.white);
+    canvas.drawCircle(
+      center,
+      r - 1.5,
+      Paint()
+        ..color = ring
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
     );
   }
 }

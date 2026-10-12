@@ -52,20 +52,7 @@ extension SignalTypeX on SignalType {
   }
 
   /// Pale background tint used behind the icon on cards and chips.
-  Color get tint {
-    switch (this) {
-      case SignalType.sell:
-        return ZoneColors.sellTint;
-      case SignalType.housing:
-        return ZoneColors.housingTint;
-      case SignalType.event:
-        return ZoneColors.eventTint;
-      case SignalType.community:
-        return ZoneColors.communityTint;
-      case SignalType.help:
-        return ZoneColors.helpTint;
-    }
-  }
+  Color get tint => ZoneColors.tintOf(color);
 
   static SignalType fromWire(String s) =>
       SignalType.values.firstWhere((t) => t.name == s,

@@ -3,84 +3,86 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../models/signal.dart';
 import '../state/app_state.dart';
+import '../widgets/empty_state.dart';
 import 'chat_screen.dart';
 
 /// Chat tab. Lists every conversation the signed-in user has open — signals
 /// they've accepted or posted — so they don't have to dig back through the
 /// map to keep talking. Tapping a row opens the existing per-signal
-/// [ChatScreen]. Rendered inside MapScreen's nav (via [onBack]), same
-/// pattern as ActivityScreen/ProfileScreen.
+/// [ChatScreen]. Rendered inside MapScreen's nav, same pattern as
+/// ActivityScreen/ProfileScreen.
 class ChatListScreen extends ConsumerWidget {
-  const ChatListScreen({super.key, required this.onBack});
-  final VoidCallback onBack;
+  const ChatListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversations = ref.watch(conversationsProvider);
+    final zc = context.zc;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
-        ),
+        title: const Text('Chats'),
+        automaticallyImplyLeading: false,
       ),
       body: conversations.isEmpty
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.chat_bubble_outline,
-                        size: 40, color: ZoneColors.textMuted),
-                    SizedBox(height: 12),
-                    Text(
-                      'No chats yet',
-                      style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: ZoneColors.textPrimary),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Accept a signal on the map to start a conversation.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: ZoneColors.textMuted),
-                    ),
-                  ],
-                ),
-              ),
+          ? const EmptyState(
+              icon: Icons.chat_bubble_outline_rounded,
+              title: 'No chats yet',
+              message: 'Accept a signal on the map to start a conversation.',
             )
           : ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
               itemCount: conversations.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 76),
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) {
                 final s = conversations[i];
-                return ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  leading: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: s.type.tint,
-                    child: Icon(s.type.icon, color: s.type.color),
+                return TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: Duration(milliseconds: 300 + i * 60),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, v, child) => Opacity(
+                    opacity: v,
+                    child: Transform.translate(
+                      offset: Offset(0, (1 - v) * 12),
+                      child: child,
+                    ),
                   ),
-                  title: Text(
-                    s.type.label,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    s.message,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing:
-                      const Icon(Icons.chevron_right, color: ZoneColors.textMuted),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => ChatScreen(signal: s)),
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      leading: Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: s.type.tint,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(s.type.icon, color: s.type.color),
+                      ),
+                      title: Text(
+                        s.type.label,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: zc.textPrimary),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          s.message,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: zc.textMuted),
+                        ),
+                      ),
+                      trailing: Icon(Icons.chevron_right_rounded,
+                          color: zc.textMuted),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => ChatScreen(signal: s)),
+                      ),
+                    ),
                   ),
                 );
               },

@@ -112,7 +112,13 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create a signal')),
+      appBar: AppBar(
+        title: const Text('New signal'),
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -122,11 +128,13 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen>
               end: 0.55,
               child: TextField(
                 controller: _message,
-                maxLines: 3,
+                maxLines: 4,
                 maxLength: 280,
+                autofocus: true,
+                style: TextStyle(fontSize: 17, color: context.zc.textPrimary),
                 decoration: const InputDecoration(
-                  hintText:
-                      'e.g. Sharing cab Delhi to Gurgaon, leaving in 10 min',
+                  hintText: 'What do you need right now?\n'
+                      'e.g. Sharing a cab to Gurgaon, leaving in 10 min',
                   alignLabelWithHint: true,
                 ),
               ),
@@ -213,12 +221,16 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: ZoneColors.textPrimary,
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(left: 2, bottom: 2),
+        child: Text(
+          text.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+            color: context.zc.textMuted,
+          ),
         ),
       );
 }
@@ -241,10 +253,11 @@ class _ChoiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final zc = context.zc;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: AnimatedScale(
           scale: selected ? 1.04 : 1.0,
@@ -255,12 +268,21 @@ class _ChoiceCard extends StatelessWidget {
             curve: Curves.easeOut,
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: selected ? tint : ZoneColors.surface,
-              borderRadius: BorderRadius.circular(14),
+              color: selected ? tint : zc.surface,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: selected ? color : ZoneColors.border,
+                color: selected ? color : zc.border,
                 width: selected ? 2 : 1,
               ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.25),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : const [],
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -275,7 +297,7 @@ class _ChoiceCard extends StatelessWidget {
                 AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 180),
                   style: TextStyle(
-                    color: selected ? color : ZoneColors.textMuted,
+                    color: selected ? color : zc.textMuted,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
@@ -312,8 +334,9 @@ class _BroadcastButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: (loading || success) ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          disabledBackgroundColor:
-              success ? ZoneColors.primary : ZoneColors.primary.withOpacity(0.6),
+          disabledBackgroundColor: success
+              ? ZoneColors.success
+              : context.zc.primary.withValues(alpha: 0.6),
           disabledForegroundColor: Colors.white,
         ),
         child: AnimatedSwitcher(
@@ -337,7 +360,7 @@ class _BroadcastButton extends StatelessWidget {
                       color: Colors.white, strokeWidth: 2),
                 )
               else
-                const Icon(Icons.podcasts),
+                const Icon(Icons.podcasts_rounded),
               const SizedBox(width: 10),
               Text(success ? 'Sent' : 'Broadcast'),
             ],

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../state/app_state.dart';
-import 'auth_screen.dart' show describeAuthError;
+import 'auth_screen.dart' show describeAuthError, ErrorBanner;
 
 /// 6-box OTP entry. On success the auth state flips and the app root swaps to
 /// the map automatically. In mock mode [devCode] is shown as a hint.
@@ -21,6 +21,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   final _nodes = List.generate(6, (_) => FocusNode());
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild on focus changes so the focused box can highlight.
+    for (final n in _nodes) {
+      n.addListener(() => setState(() {}));
+    }
+  }
 
   @override
   void dispose() {
@@ -94,83 +103,156 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final zc = context.zc;
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify')),
+      appBar: AppBar(),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Enter the code',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: ZoneColors.textPrimary,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: zc.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                child: Icon(Icons.mark_email_read_outlined,
+                    color: zc.primary, size: 28),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Sent to ${widget.email}',
-                style:
-                    const TextStyle(color: ZoneColors.textMuted, fontSize: 15),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Check your inbox',
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.6,
+                color: zc.textPrimary,
               ),
-              if (widget.devCode != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Dev mode code: ${widget.devCode}',
-                  style: const TextStyle(
-                      color: ZoneColors.accent, fontWeight: FontWeight.w600),
-                ),
-              ],
-              const SizedBox(height: 28),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(6, (i) {
-                  return SizedBox(
-                    width: 48,
-                    child: Focus(
-                      onKeyEvent: (node, event) => _onKey(i, event),
-                      child: TextField(
-                        controller: _controllers[i],
-                        focusNode: _nodes[i],
-                        autofocus: i == 0,
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        maxLength: 1,
-                        style: const TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.w700),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: const InputDecoration(counterText: ''),
-                        onTap: () => _selectAll(i),
-                        onChanged: (v) => _onChanged(i, v),
-                      ),
+            ),
+            const SizedBox(height: 8),
+            Text.rich(
+              TextSpan(
+                text: 'Enter the 6-digit code sent to ',
+                children: [
+                  TextSpan(
+                    text: widget.email,
+                    style: TextStyle(
+                        color: zc.textPrimary, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              style: TextStyle(color: zc.textMuted, fontSize: 15, height: 1.4),
+            ),
+            if (widget.devCode != null) ...[
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: ZoneColors.sell.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Dev code · ${widget.devCode}',
+                    style: const TextStyle(
+                      color: Color(0xFFB45309),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
                     ),
-                  );
-                }),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 14)),
-              ],
-              const SizedBox(height: 28),
-              ElevatedButton(
-                onPressed: _loading ? null : _verify,
-                child: _loading
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text('Verify'),
+                  ),
+                ),
               ),
             ],
-          ),
+            const SizedBox(height: 32),
+            Row(
+              children: List.generate(6, (i) {
+                final filled = _controllers[i].text.isNotEmpty;
+                final focused = _nodes[i].hasFocus;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: filled
+                            ? zc.primary.withValues(alpha: 0.08)
+                            : zc.surfaceAlt,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: focused
+                              ? zc.primary
+                              : (filled
+                                  ? zc.primary.withValues(alpha: 0.4)
+                                  : Colors.transparent),
+                          width: focused ? 1.8 : 1.2,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Focus(
+                        onKeyEvent: (node, event) => _onKey(i, event),
+                        child: TextField(
+                          controller: _controllers[i],
+                          focusNode: _nodes[i],
+                          autofocus: i == 0,
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          maxLength: 1,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: zc.textPrimary,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: const InputDecoration(
+                            counterText: '',
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onTap: () => _selectAll(i),
+                          onChanged: (v) => _onChanged(i, v),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: _error == null
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: ErrorBanner(message: _error!),
+                    ),
+            ),
+            const SizedBox(height: 28),
+            ElevatedButton(
+              onPressed: _loading ? null : _verify,
+              child: _loading
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text('Verify'),
+            ),
+          ],
         ),
       ),
     );

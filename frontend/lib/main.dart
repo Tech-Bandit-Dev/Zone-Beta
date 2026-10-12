@@ -15,10 +15,13 @@ class ZoneApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider);
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: 'Zone',
       debugShowCheckedModeBanner: false,
       theme: ZoneTheme.light(),
+      darkTheme: ZoneTheme.dark(),
+      themeMode: themeMode,
       // Logged out → Landing; logged in → Map.
       home: user == null ? const LandingScreen() : const MapScreen(),
     );

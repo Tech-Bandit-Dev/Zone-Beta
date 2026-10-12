@@ -121,105 +121,138 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final zc = context.zc;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isSignup ? 'Sign up' : 'Log in'),
         actions: [
           TextButton(
             onPressed: _skip,
-            child: const Text('Skip',
+            child: Text('Skip',
                 style: TextStyle(
-                    color: ZoneColors.textMuted, fontWeight: FontWeight.w600)),
+                    color: zc.textMuted, fontWeight: FontWeight.w600)),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _isSignup ? 'Create your account' : 'Welcome back',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: ZoneColors.textPrimary,
-                ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          children: [
+            Text(
+              _isSignup ? 'Create your account' : 'Welcome back',
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.6,
+                color: zc.textPrimary,
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'We will email you a 6-digit code to verify.',
-                style: TextStyle(color: ZoneColors.textMuted, fontSize: 15),
-              ),
-              const SizedBox(height: 28),
-              if (_isSignup) ...[
-                TextField(
-                  controller: _name,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'We\'ll email you a 6-digit code to verify.',
+              style: TextStyle(color: zc.textMuted, fontSize: 15),
+            ),
+            const SizedBox(height: 32),
+            if (_isSignup) ...[
               TextField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
+                controller: _name,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
-                  labelText: 'Email address',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  hintText: 'Full name',
+                  prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 14)),
-              ],
-              const SizedBox(height: 28),
-              ElevatedButton(
-                onPressed: _loading ? null : _continue,
-                child: _loading
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text('Continue'),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(child: Divider(color: ZoneColors.border)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('or',
-                        style: TextStyle(color: ZoneColors.textMuted)),
-                  ),
-                  Expanded(child: Divider(color: ZoneColors.border)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              OutlinedButton.icon(
-                onPressed: _loading ? null : _continueWithGoogle,
-                icon: _loading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const _GoogleMark(),
-                label: const Text('Continue with Google'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: ZoneColors.textPrimary,
-                  side: const BorderSide(color: ZoneColors.border),
-                ),
-              ),
+              const SizedBox(height: 12),
             ],
-          ),
+            TextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _continue(),
+              decoration: const InputDecoration(
+                hintText: 'you@example.com',
+                prefixIcon: Icon(Icons.alternate_email_rounded),
+              ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: _error == null
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: ErrorBanner(message: _error!),
+                    ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loading ? null : _continue,
+              child: _loading
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text('Continue'),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('or',
+                      style: TextStyle(color: zc.textMuted, fontSize: 13)),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: _loading ? null : _continueWithGoogle,
+              icon: _loading
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const _GoogleMark(),
+              label: const Text('Continue with Google'),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// Inline error message with an icon, used on the auth and OTP screens.
+class ErrorBanner extends StatelessWidget {
+  const ErrorBanner({super.key, required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: ZoneColors.danger.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              size: 18, color: ZoneColors.danger),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: ZoneColors.danger, fontSize: 14),
+            ),
+          ),
+        ],
       ),
     );
   }

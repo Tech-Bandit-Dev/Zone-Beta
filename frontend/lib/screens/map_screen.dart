@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
@@ -7,6 +8,7 @@ import '../widgets/map_placeholder.dart';
 import '../widgets/radius_slider.dart';
 import '../widgets/signal_bottom_sheet.dart';
 import '../widgets/sign_in_gate.dart';
+import '../widgets/zone_nav_bar.dart';
 import 'create_signal_screen.dart';
 import 'chat_screen.dart';
 import 'chat_list_screen.dart';
@@ -31,6 +33,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final _center = (lat: 28.6139, lng: 77.209);
   int _radius = 500;
   int _navIndex = 0;
+  double _refreshTurns = 0;
 
   @override
   void initState() {
@@ -39,6 +42,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Future<void> _refresh() async {
+    setState(() => _refreshTurns += 1);
     await ref.read(signalsProvider.notifier).loadNearby(
           lat: _center.lat,
           lng: _center.lng,
@@ -106,133 +110,204 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final signals = ref.watch(signalsProvider);
     final user = ref.watch(authProvider);
+    final chatCount = ref.watch(conversationsProvider).length;
 
-    // Simple nav: index 0 is the map; others push full screens. Activity,
-    // Chat, and Profile require an account — guests see a sign-in prompt
-    // instead.
-    if (_navIndex == 1) {
-      return user == null
-          ? SignInGate(
+    // Activity, Chat, and Profile require an account — guests see a sign-in
+    // prompt in their place. The nav bar stays put across all tabs.
+    final Widget tab = switch (_navIndex) {
+      1 => user == null
+          ? const SignInGate(
               message:
                   'Sign up or log in to see your accepted and posted signals.',
-              onBack: () => setState(() => _navIndex = 0),
+              showBack: false,
             )
-          : ActivityScreen(onBack: () => setState(() => _navIndex = 0));
-    }
-    if (_navIndex == 2) {
-      return user == null
-          ? SignInGate(
+          : const ActivityScreen(),
+      2 => user == null
+          ? const SignInGate(
               message: 'Sign up or log in to see your chats.',
-              onBack: () => setState(() => _navIndex = 0),
+              showBack: false,
             )
-          : ChatListScreen(onBack: () => setState(() => _navIndex = 0));
-    }
-    if (_navIndex == 3) {
-      return user == null
-          ? SignInGate(
+          : const ChatListScreen(),
+      3 => user == null
+          ? const SignInGate(
               message: 'Sign up or log in to view and manage your profile.',
-              onBack: () => setState(() => _navIndex = 0),
+              showBack: false,
             )
-          : ProfileScreen(onBack: () => setState(() => _navIndex = 0));
-    }
+          : const ProfileScreen(),
+      // Builder so _buildMap reads MediaQuery from inside the Scaffold body
+      // (where extendBody has added the nav bar's height as padding).
+      _ => Builder(builder: _buildMap),
+    };
 
     return Scaffold(
-      body: SizedBox.expand(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: MapPlaceholder(
-                center: _center,
-                signals: signals,
-                selectedRadius: _radius,
-                onPinTap: _openSignal,
+      extendBody: true,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: ScaleTransition(
+            scale: Tween(begin: 0.98, end: 1.0).animate(anim),
+            child: child,
+          ),
+        ),
+        child: KeyedSubtree(
+          key: ValueKey(_navIndex),
+          child: _navIndex == 0 ? tab : _ClearOfNavBar(child: tab),
+        ),
+      ),
+      floatingActionButton: AnimatedScale(
+        scale: _navIndex == 0 ? 1 : 0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutBack,
+        child: FloatingActionButton.extended(
+          backgroundColor: context.zc.primary,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18)),
+          onPressed: _navIndex == 0 ? _openCreate : null,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Create',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+        ),
+      ),
+      bottomNavigationBar: ZoneNavBar(
+        selectedIndex: _navIndex,
+        onSelected: (i) => setState(() => _navIndex = i),
+        items: [
+          const ZoneNavItem(
+              icon: Icons.map_outlined,
+              selectedIcon: Icons.map_rounded,
+              label: 'Map'),
+          const ZoneNavItem(
+              icon: Icons.bolt_outlined,
+              selectedIcon: Icons.bolt_rounded,
+              label: 'Activity'),
+          ZoneNavItem(
+              icon: Icons.chat_bubble_outline_rounded,
+              selectedIcon: Icons.chat_bubble_rounded,
+              label: 'Chat',
+              badge: user == null ? 0 : chatCount),
+          const ZoneNavItem(
+              icon: Icons.person_outline_rounded,
+              selectedIcon: Icons.person_rounded,
+              label: 'Profile'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMap(BuildContext context) {
+    final signals = ref.watch(signalsProvider);
+    final zc = context.zc;
+    return SizedBox.expand(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: MapPlaceholder(
+              center: _center,
+              signals: signals,
+              selectedRadius: _radius,
+              onPinTap: _openSignal,
+            ),
+          ),
+          // Top bar.
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  _GlassChip(
+                    child: Row(
+                      children: [
+                        Icon(Icons.near_me_rounded,
+                            size: 18, color: zc.primary),
+                        const SizedBox(width: 8),
+                        Text('Near you',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: zc.textPrimary)),
+                        const SizedBox(width: 8),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Container(
+                            key: ValueKey(signals.length),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: zc.primary.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${signals.length}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: zc.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  _GlassChip(
+                    onTap: _refresh,
+                    child: AnimatedRotation(
+                      turns: _refreshTurns,
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeInOutCubic,
+                      child: Icon(Icons.refresh_rounded,
+                          size: 20, color: zc.textPrimary),
+                    ),
+                  ),
+                ],
               ),
             ),
-            // Top bar.
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    _MapChip(
-                      child: Row(
-                        children: const [
-                          Icon(Icons.my_location,
-                              size: 18, color: ZoneColors.primary),
-                          SizedBox(width: 6),
-                          Text('Near you',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    _MapChip(
-                      onTap: _refresh,
-                      child: const Icon(Icons.refresh,
-                          size: 20, color: ZoneColors.primary),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Radius slider (drag to pick anything from 250m up to 5km).
-            // Right inset leaves room for the FAB so the two floating
-            // controls don't overlap in the same bottom band.
-            Positioned(
-              left: 16,
-              right: 160,
-              bottom: 24,
+          ),
+          // Radius slider (drag to pick anything from 250m up to 5km).
+          // Right inset leaves room for the FAB so the two floating
+          // controls don't overlap in the same bottom band.
+          Positioned(
+            left: 16,
+            right: 160,
+            // extendBody puts the nav bar's height in the bottom padding.
+            bottom: MediaQuery.paddingOf(context).bottom + 12,
+            child: _GlassChip(
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 2),
               child: RadiusSlider(
                 value: _radius,
                 onChanged: _onRadiusChanged,
                 compact: true,
               ),
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: ZoneColors.accent,
-        foregroundColor: Colors.white,
-        onPressed: _openCreate,
-        icon: const Icon(Icons.add),
-        label: const Text('Create'),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _navIndex,
-        onDestinationSelected: (i) => setState(() => _navIndex = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
-          NavigationDestination(
-              icon: Icon(Icons.bolt_outlined), label: 'Activity'),
-          NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-          NavigationDestination(
-              icon: Icon(Icons.person_outline), label: 'Profile'),
+          ),
         ],
       ),
     );
   }
 }
 
-class _MapChip extends StatelessWidget {
-  const _MapChip({required this.child, this.onTap});
+/// Pads a tab so its content ends above the floating nav bar, and removes
+/// that padding from MediaQuery so nested Scaffolds don't apply it twice.
+class _ClearOfNavBar extends StatelessWidget {
+  const _ClearOfNavBar({required this.child});
   final Widget child;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(24),
-      elevation: 2,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return ColoredBox(
+      color: context.zc.background,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottom),
+        child: MediaQuery.removePadding(
+          context: context,
+          removeBottom: true,
           child: child,
         ),
       ),
@@ -240,3 +315,50 @@ class _MapChip extends StatelessWidget {
   }
 }
 
+/// Frosted-glass floating control used over the map.
+class _GlassChip extends StatelessWidget {
+  const _GlassChip({
+    required this.child,
+    this.onTap,
+    this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+  });
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final zc = context.zc;
+    final radius = BorderRadius.circular(18);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Material(
+            color: zc.surface.withValues(alpha: 0.82),
+            shape: RoundedRectangleBorder(
+              borderRadius: radius,
+              side: BorderSide(color: zc.border.withValues(alpha: 0.6)),
+            ),
+            child: InkWell(
+              borderRadius: radius,
+              onTap: onTap,
+              child: Padding(padding: padding, child: child),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

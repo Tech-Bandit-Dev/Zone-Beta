@@ -3,21 +3,18 @@ import '../theme/app_theme.dart';
 import '../screens/auth_screen.dart';
 
 /// Shown in place of a feature that requires an account (Create, Activity,
-/// Profile) when the user reached the map via "Skip" and hasn't signed in.
+/// Chat, Profile) when the user reached the map via "Skip" and hasn't signed
+/// in. [showBack] is false when rendered as a tab, true when pushed.
 class SignInGate extends StatelessWidget {
-  const SignInGate({super.key, required this.message, this.onBack});
+  const SignInGate({super.key, required this.message, this.showBack = true});
   final String message;
-  final VoidCallback? onBack;
+  final bool showBack;
 
   @override
   Widget build(BuildContext context) {
+    final zc = context.zc;
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack ?? () => Navigator.of(context).pop(),
-        ),
-      ),
+      appBar: AppBar(automaticallyImplyLeading: showBack),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -25,30 +22,33 @@ class SignInGate extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 64,
-                height: 64,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: ZoneColors.sellTint,
-                  borderRadius: BorderRadius.circular(18),
+              Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: zc.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Icon(Icons.lock_outline_rounded,
+                      color: zc.primary, size: 32),
                 ),
-                child: const Icon(Icons.lock_outline,
-                    color: ZoneColors.primary, size: 30),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Sign in required',
+              Text(
+                'Sign in to continue',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: ZoneColors.textPrimary),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: zc.textPrimary),
               ),
               const SizedBox(height: 8),
               Text(
                 message,
-                style: const TextStyle(
-                    color: ZoneColors.textMuted, fontSize: 15, height: 1.4),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: zc.textMuted, fontSize: 15, height: 1.4),
               ),
               const SizedBox(height: 28),
               ElevatedButton(
